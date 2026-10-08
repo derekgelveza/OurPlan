@@ -8,7 +8,6 @@ import java.time.Instant;
 /** A calendar's invite, as listed for the owner. */
 public record CalendarInviteResponseDTO(
         Long inviteId,
-        String inviteeContact,
         AccessLevel accessLevel,
         InviteStatus status,
         String inviteLink,

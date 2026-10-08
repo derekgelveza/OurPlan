@@ -15,7 +15,6 @@ import com.derekgelvez.calendar.model.InviteStatus;
 import com.derekgelvez.calendar.repository.CalendarInviteRepository;
 import com.derekgelvez.calendar.repository.CalendarPermissionRepository;
 import com.derekgelvez.user.model.User;
-import com.derekgelvez.user.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,10 +27,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Calendar sharing. An invite can be sent to someone who does not have an OurPlan account
- * yet, but they must have one to accept it. Acceptance is bound to the logged-in invitee
- * (their email or phone number must match the invite) and creates the CalendarPermission in
- * the same transaction. Expiry needs no scheduled job: it is checked when someone responds.
+ * Calendar sharing. An invite link can be copied and shared by the owner. The link itself
+ * identifies the invitation; acceptance creates the CalendarPermission in the same
+ * transaction. Expiry needs no scheduled job: it is checked when someone responds.
  */
 @Service
 public class CalendarShareService {
@@ -41,7 +39,6 @@ public class CalendarShareService {
     private final CalendarInviteRepository calendarInviteRepository;
     private final CalendarPermissionRepository calendarPermissionRepository;
     private final CalendarAccessService calendarAccessService;
-    private final UserRepository userRepository;
     private final UserLookup userLookup;
     private final String inviteBaseUrl;
     private final int inviteExpiryDays;
@@ -49,42 +46,26 @@ public class CalendarShareService {
     public CalendarShareService(CalendarInviteRepository calendarInviteRepository,
                                 CalendarPermissionRepository calendarPermissionRepository,
                                 CalendarAccessService calendarAccessService,
-                                UserRepository userRepository,
                                 UserLookup userLookup,
                                 @Value("${ourplan.invite.base-url}") String inviteBaseUrl,
                                 @Value("${ourplan.invite.expiry-days:7}") int inviteExpiryDays) {
         this.calendarInviteRepository = calendarInviteRepository;
         this.calendarPermissionRepository = calendarPermissionRepository;
         this.calendarAccessService = calendarAccessService;
-        this.userRepository = userRepository;
         this.userLookup = userLookup;
         this.inviteBaseUrl = inviteBaseUrl.endsWith("/") ? inviteBaseUrl.substring(0, inviteBaseUrl.length() - 1)
                 : inviteBaseUrl;
         this.inviteExpiryDays = inviteExpiryDays;
     }
 
-    /** The owner invites someone by email or phone number with READ_ONLY or READ_WRITE access. */
+    /** Generates a shareable invite link with READ_ONLY or READ_WRITE access. */
     @Transactional
     public ShareCalendarResponseDTO shareCalendar(Long userId, Long calendarId, ShareCalendarRequestDTO dto) {
         Calendar calendar = calendarAccessService.assertIsOwner(userId, calendarId);
         User owner = calendar.getOwner();
-        String contact = normalizeContact(dto.inviteeContact());
-
-        if (contact.equals(owner.getEmail()) || contact.equals(normalizePhone(owner.getPhoneNumber()))) {
-            throw new InviteNotValidException("You cannot invite yourself");
-        }
-        if (isEmail(contact)) {
-            userRepository.findByEmail(contact)
-                    .filter(invitee -> calendarPermissionRepository.existsByCalendarIdAndUserId(calendarId, invitee.getId()))
-                    .ifPresent(invitee -> {
-                        throw new InviteNotValidException("That person already has access to this calendar");
-                    });
-        }
-
         CalendarInvite invite = new CalendarInvite();
         invite.setCalendar(calendar);
         invite.setInviter(owner);
-        invite.setInviteeContact(contact);
         invite.setToken(newToken());
         invite.setAccessLevel(dto.accessLevel());
         invite.setStatus(InviteStatus.PENDING);
@@ -106,13 +87,13 @@ public class CalendarShareService {
                     invite.setStatus(InviteStatus.EXPIRED);
                     return false;
                 })
-                .map(invite -> new CalendarInviteResponseDTO(invite.getId(), invite.getInviteeContact(),
+                .map(invite -> new CalendarInviteResponseDTO(invite.getId(),
                         invite.getAccessLevel(), invite.getStatus(), inviteLink(invite), invite.getExpiresAt()))
                 .toList();
     }
 
     /**
-     * Accepts an invite: it must be PENDING, not expired, and addressed to the logged-in user.
+     * Accepts an invite: it must be PENDING and not expired.
      * Creates the CalendarPermission and marks the invite ACCEPTED in one transaction.
      */
     @Transactional(noRollbackFor = InviteNotValidException.class)
@@ -168,7 +149,7 @@ public class CalendarShareService {
 
     // ---------------------------------------------------------------- helpers
 
-    /** Finds a PENDING, unexpired invite addressed to the logged-in user; marks it EXPIRED if past expiry. */
+    /** Finds a PENDING, unexpired invite; marks it EXPIRED if past expiry. */
     private CalendarInvite getRespondableInvite(Long userId, String token) {
         CalendarInvite invite = calendarInviteRepository.findByToken(token)
                 .orElseThrow(() -> new InviteNotValidException("Invite not found"));
@@ -179,12 +160,6 @@ public class CalendarShareService {
             invite.setStatus(InviteStatus.EXPIRED);
             calendarInviteRepository.save(invite);
             throw new InviteNotValidException("Invite has expired");
-        }
-        User user = userLookup.getUser(userId);
-        String contact = invite.getInviteeContact();
-        boolean addressedToUser = contact.equals(user.getEmail()) || contact.equals(normalizePhone(user.getPhoneNumber()));
-        if (!addressedToUser) {
-            throw new InviteNotValidException("This invite was sent to someone else");
         }
         return invite;
     }
@@ -199,21 +174,4 @@ public class CalendarShareService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private static boolean isEmail(String contact) {
-        return contact.contains("@");
-    }
-
-    /** Emails are lower-cased; phone numbers keep only digits and a leading +. */
-    static String normalizeContact(String contact) {
-        String trimmed = contact.trim();
-        return isEmail(trimmed) ? trimmed.toLowerCase(Locale.ROOT) : normalizePhone(trimmed);
-    }
-
-    static String normalizePhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            return null;
-        }
-        String digits = phone.replaceAll("[^0-9]", "");
-        return phone.trim().startsWith("+") ? "+" + digits : digits;
-    }
 }

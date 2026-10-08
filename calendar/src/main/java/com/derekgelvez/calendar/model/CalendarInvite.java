@@ -22,8 +22,8 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 
 /**
- * A temporary invite to view or edit a calendar, sent by email, text, or link.
- * The invitee does not need an account to be invited, only to accept.
+ * A temporary invite to view or edit a calendar. The owner copies and shares
+ * the generated link through the channel of their choice.
  */
 @Entity
 @Table(name = "calendar_invites")
@@ -43,10 +43,6 @@ public class CalendarInvite {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "inviter_id", nullable = false)
     private User inviter;
-
-    /** Normalized email (lower case) or phone number (digits, optional leading +). */
-    @Column(name = "invitee_contact", nullable = false)
-    private String inviteeContact;
 
     /** Unique token used in the invite link. */
     @Column(nullable = false, unique = true, length = 64)

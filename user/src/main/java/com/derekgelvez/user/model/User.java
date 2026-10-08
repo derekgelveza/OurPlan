@@ -15,8 +15,7 @@ import java.time.Instant;
 import java.util.Locale;
 
 /**
- * An OurPlan account. Looked up by id, or by email when a calendar is shared
- * (see {@code UserRepository.findByEmail}).
+ * An OurPlan account, looked up by id for calendar ownership and access checks.
  */
 @Entity
 @Table(name = "users")
@@ -32,10 +31,6 @@ public class User {
     /** Unique; always stored in lower case so lookups by email are consistent. */
     @Column(nullable = false, unique = true)
     private String email;
-
-    /** Optional; unique when present. Calendar invites may be sent by text. */
-    @Column(name = "phone_number", unique = true, length = 32)
-    private String phoneNumber;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

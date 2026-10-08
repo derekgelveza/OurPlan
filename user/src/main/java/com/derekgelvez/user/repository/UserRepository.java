@@ -9,9 +9,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // findById(userId) is inherited from JpaRepository.
 
-    /**
-     * Finds a user by email. Used by shareCalendar() to find the invitee.
-     * Emails are stored in lower case, so pass a lower-cased email.
-     */
+    /** Finds an account by its normalized email for authentication. */
     Optional<User> findByEmail(String email);
+
 }
