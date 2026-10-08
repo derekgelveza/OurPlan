@@ -55,6 +55,6 @@ public class CurrentUserProvider {
     private Long createBypassUser() {
         return userRepository.findByEmail("test-user@ourplan.local")
                 .map(User::getId)
-                .orElseGet(() -> userRepository.save(new User("test-user@ourplan.local")).getId());
+                .orElseGet(() -> userRepository.save(new User("test-user", "test-user@ourplan.local", "")).getId());
     }
 }
