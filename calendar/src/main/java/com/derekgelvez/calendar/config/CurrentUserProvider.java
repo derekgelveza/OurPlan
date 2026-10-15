@@ -6,14 +6,16 @@ import com.derekgelvez.user.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
 
 /**
  * Provides the id of the logged-in user to controllers. This is the single place that
- * knows how the authentication layer identifies a user: the principal name is either the
- * user's numeric id or their email.
+ * knows how the authentication layer identifies a user: the JWT filter stores the User
+ * entity as the principal, and its name is the user's email.
  */
 @Component
 public class CurrentUserProvider {
@@ -24,7 +26,11 @@ public class CurrentUserProvider {
 
     public CurrentUserProvider(UserRepository userRepository,
                                @Value("${DISABLE_AUTH:false}") boolean disableAuth,
-                               @Value("${ourplan.security.bypass-user-id:1}") long bypassUserId) {
+                               @Value("${ourplan.security.bypass-user-id:1}") long bypassUserId,
+                               Environment environment) {
+        if (disableAuth && !environment.acceptsProfiles(Profiles.of("local"))) {
+            throw new IllegalStateException("DISABLE_AUTH is only allowed with the local Spring profile");
+        }
         this.userRepository = userRepository;
         this.disableAuth = disableAuth;
         this.bypassUserId = bypassUserId;
@@ -42,10 +48,11 @@ public class CurrentUserProvider {
         if (authentication == null || !authentication.isAuthenticated() || authentication.getName() == null) {
             throw new CalendarAccessDeniedException("No authenticated user");
         }
-        String principal = authentication.getName().trim();
-        if (principal.chars().allMatch(Character::isDigit) && !principal.isEmpty()) {
-            return Long.valueOf(principal);
+        if (authentication.getPrincipal() instanceof User user) {
+            return user.getId();
         }
+        // Never treat a principal name as a user id: only an email lookup is trusted.
+        String principal = authentication.getName().trim();
         return userRepository.findByEmail(principal.toLowerCase(Locale.ROOT))
                 .map(User::getId)
                 .orElseThrow(() -> new CalendarAccessDeniedException("Authenticated user is not an OurPlan user"));

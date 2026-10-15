@@ -1,15 +1,21 @@
 package com.derekgelvez.calendar.exception;
 
 import com.derekgelvez.calendar.dto.ErrorResponseDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
@@ -23,6 +29,8 @@ import java.util.Map;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ColorInUseException.class)
     public ResponseEntity<ErrorResponseDTO> handle(ColorInUseException e) {
@@ -82,7 +90,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-            MissingServletRequestParameterException.class})
+            MissingServletRequestParameterException.class, HandlerMethodValidationException.class})
     public ResponseEntity<ErrorResponseDTO> handleBadRequest(Exception e) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Malformed request", Map.of());
     }
@@ -93,7 +101,33 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "CONFLICT", "The request conflicts with existing data", Map.of());
     }
 
-    private ResponseEntity<ErrorResponseDTO> error(HttpStatus status, String code, String message,
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponseDTO> handle(AuthenticationException e) {
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Authentication required", Map.of());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDTO> handle(AccessDeniedException e) {
+        return error(HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not have permission to do this", Map.of());
+    }
+
+    /**
+     * Anything else, so the app always gets the same JSON shape: Spring's own errors keep their
+     * status (404, 405...), unknown ones become a generic 500 without internal details.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponseDTO> handle(Exception e) {
+        if (e instanceof org.springframework.web.ErrorResponse springError) {
+            HttpStatusCode status = springError.getStatusCode();
+            HttpStatus resolved = HttpStatus.resolve(status.value());
+            String code = resolved != null ? resolved.name() : "ERROR";
+            return error(status, code, resolved != null ? resolved.getReasonPhrase() : "Request failed", Map.of());
+        }
+        log.error("Unhandled error", e);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Something went wrong", Map.of());
+    }
+
+    private ResponseEntity<ErrorResponseDTO> error(HttpStatusCode status, String code, String message,
                                                    Map<String, Object> details) {
         return ResponseEntity.status(status).body(new ErrorResponseDTO(code, message, details));
     }

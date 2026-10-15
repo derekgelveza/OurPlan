@@ -51,6 +51,12 @@ public class User implements UserDetails {
     @Column(name = "verification_expiration")
     private LocalDateTime verificationCodeExpiresAt;
 
+    @Column(name = "password_reset_token_hash")
+    private String passwordResetTokenHash;
+
+    @Column(name = "password_reset_expiration")
+    private LocalDateTime passwordResetExpiresAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -63,6 +69,20 @@ public class User implements UserDetails {
 
     public void setEmail(String email) {
         this.email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Spring Security's login identifier. OurPlan signs in by email, and the JWT subject and
+     * the UserDetailsService lookup both use it, so this returns the email, not the handle.
+     */
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    /** The public handle chosen at sign-up (the {@code username} column). */
+    public String getHandle() {
+        return username;
     }
 
     @Override

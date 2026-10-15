@@ -24,4 +24,8 @@ public class EmailService {
 
         emailSender.send(message);
     }
+
+    public void sendPasswordResetEmail(String to, String subject, String text) throws MessagingException {
+        sendVerificationEmail(to, subject, text);
+    }
 }
