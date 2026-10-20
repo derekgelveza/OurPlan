@@ -15,6 +15,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Creates and checks the HS256-signed JWTs used by both services. The token subject is the
+ * account's email ({@code User.getUsername()}). Both services must be configured with the same
+ * Base64-encoded {@code security.jwt.secret-key} for one to accept tokens issued by the other.
+ */
 @Service
 public class JwtService {
     @Value("${security.jwt.secret-key}")
@@ -23,6 +28,7 @@ public class JwtService {
     @Value("${security.jwt.expiration-time}")
     private long jwtExpiration;
 
+    /** Reads the subject (the email). Throws a JwtException if the signature is invalid or the token has expired. */
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -40,6 +46,7 @@ public class JwtService {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
+    /** Token lifetime in milliseconds ({@code security.jwt.expiration-time}). */
     public long getExpirationTime() {
         return jwtExpiration;
     }
@@ -59,6 +66,10 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * True when the token was issued for this account and hasn't expired. Parsing already rejects
+     * expired tokens with an exception, so the expiry check here is a second safeguard.
+     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);

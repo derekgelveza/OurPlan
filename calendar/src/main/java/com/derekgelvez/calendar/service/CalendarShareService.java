@@ -78,6 +78,7 @@ public class CalendarShareService {
     @Transactional
     public List<CalendarInviteResponseDTO> getPendingInvites(Long userId, Long calendarId) {
         calendarAccessService.assertIsOwner(userId, calendarId);
+        // Invites found past expiry are marked EXPIRED here; the change is saved when the transaction commits.
         Instant now = Instant.now();
         return calendarInviteRepository.findByCalendarIdAndStatus(calendarId, InviteStatus.PENDING).stream()
                 .filter(invite -> {
@@ -95,6 +96,7 @@ public class CalendarShareService {
     /**
      * Accepts an invite: it must be PENDING and not expired.
      * Creates the CalendarPermission and marks the invite ACCEPTED in one transaction.
+     * noRollbackFor keeps an EXPIRED status written by getRespondableInvite even though the request fails.
      */
     @Transactional(noRollbackFor = InviteNotValidException.class)
     public CalendarResponseDTO acceptInvite(Long userId, String token) {
@@ -105,6 +107,7 @@ public class CalendarShareService {
             throw new InviteNotValidException("You cannot accept an invite to your own calendar");
         }
 
+        // A guest who already has access gets the invite's access level instead of a duplicate permission.
         CalendarPermission permission = calendarPermissionRepository.findByCalendarIdAndUserId(calendar.getId(), userId)
                 .orElseGet(() -> new CalendarPermission(calendar, invitee, invite.getAccessLevel()));
         permission.setAccessLevel(invite.getAccessLevel());

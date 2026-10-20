@@ -4,6 +4,7 @@ package com.derekgelvez.user.responses;
 import lombok.Getter;
 import lombok.Setter;
 
+/** Returned by {@code /auth/login}: the JWT and its lifetime in milliseconds. */
 @Getter
 @Setter
 public class LoginResponse {

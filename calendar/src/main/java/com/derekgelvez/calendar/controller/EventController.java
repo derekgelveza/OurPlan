@@ -40,17 +40,20 @@ public class EventController {
         return eventService.getEvents(currentUserProvider.getCurrentUserId(), calendarId, from, to);
     }
 
+    /** Owner or READ_WRITE guest. Include {@code recurrence} in the body to create a repeating event. */
     @PostMapping("/calendars/{calendarId}/events")
     @ResponseStatus(HttpStatus.CREATED)
     public EventResponseDTO createEvent(@PathVariable Long calendarId, @Valid @RequestBody EventDTO dto) {
         return eventService.createEvent(currentUserProvider.getCurrentUserId(), calendarId, dto);
     }
 
+    /** For a repeating event, {@code scope} and {@code occurrenceDate} in the body choose which occurrences change. */
     @PutMapping("/events/{eventId}")
     public EventResponseDTO updateEvent(@PathVariable Long eventId, @Valid @RequestBody UpdateEventDTO dto) {
         return eventService.updateEvent(currentUserProvider.getCurrentUserId(), eventId, dto);
     }
 
+    /** The body says which occurrences of a repeating event to delete; for a one-time event it is just a confirmation. */
     @DeleteMapping("/events/{eventId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEvent(@PathVariable Long eventId, @Valid @RequestBody DeleteEventDTO dto) {

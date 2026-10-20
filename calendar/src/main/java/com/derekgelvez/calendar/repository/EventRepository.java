@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** Events of a calendar. A repeating event is stored once, as its first occurrence. */
 public interface EventRepository extends JpaRepository<Event, Long> {
 
     /**

@@ -1,6 +1,8 @@
 package com.derekgelvez.calendar.dto;
 
+import com.derekgelvez.calendar.model.EventRecurrence;
 import com.derekgelvez.calendar.model.RecurrenceFrequency;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -21,6 +23,15 @@ public record RecurrenceDTO(
         LocalDate until
 ) {
 
+    /** The stored rule as returned to the app, or null for a one-time event. */
+    public static RecurrenceDTO from(EventRecurrence rule) {
+        if (rule == null) {
+            return null;
+        }
+        return new RecurrenceDTO(rule.getFrequency(), rule.getInterval(), Set.copyOf(rule.getDaysOfWeek()), rule.getUntil());
+    }
+
+    @JsonIgnore
     @AssertTrue(message = "daysOfWeek is required for WEEKLY and CUSTOM")
     public boolean isDaysOfWeekValid() {
         boolean weekly = frequency == RecurrenceFrequency.WEEKLY || frequency == RecurrenceFrequency.CUSTOM;

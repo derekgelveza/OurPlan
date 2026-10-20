@@ -14,6 +14,11 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+/**
+ * HTTP security for the user service. {@code /auth/**} (sign-up, login, verification, password
+ * reset) is public and rate-limited per IP; everything else, such as {@code /users/me}, needs a
+ * valid JWT. No sessions are created: every request is authenticated from its token alone.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {

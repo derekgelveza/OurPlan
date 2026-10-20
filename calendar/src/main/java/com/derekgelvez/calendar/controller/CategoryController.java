@@ -33,11 +33,13 @@ public class CategoryController {
     private final CategoryService categoryService;
     private final CurrentUserProvider currentUserProvider;
 
+    /** The caller's own categories, "Uncategorized" first. */
     @GetMapping
     public List<CategoryResponseDTO> getCategories() {
         return categoryService.getCategories(currentUserProvider.getCurrentUserId());
     }
 
+    /** With reassignColor=true, the category already using the colour is switched to the default grey. */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CategoryResponseDTO createCategory(@Valid @RequestBody CategoryDTO dto,

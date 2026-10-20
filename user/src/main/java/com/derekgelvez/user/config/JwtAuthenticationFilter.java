@@ -20,6 +20,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Runs once per request and, when a valid {@code Authorization: Bearer <jwt>} header is present,
+ * marks the request as authenticated with the matching {@code User} as the principal.
+ *
+ * <p>It never rejects a request itself: a missing or bad token just leaves the request anonymous,
+ * and the authorization rules in the security configuration decide (401 for protected endpoints).
+ * The calendar service reuses this class by constructing it in its own {@code SecurityConfig}.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -55,7 +63,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
+            // Skip if this request has already been authenticated earlier in the chain.
             if(userEmail != null && authentication == null){
+                // Reload the account so tokens for deleted or unverified accounts are not honored.
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
                 if(userDetails.isEnabled() && jwtService.isTokenValid(jwt, userDetails)){

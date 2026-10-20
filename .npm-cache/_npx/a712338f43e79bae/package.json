@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "create-expo-app": "^5.0.0"
+  },
+  "_npx": {
+    "packages": [
+      "create-expo-app"
+    ]
+  }
+}

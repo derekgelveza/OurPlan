@@ -47,6 +47,7 @@ public final class RecurrenceExpander {
         }
         switch (frequency) {
             case DAILY -> {
+                // Jump straight to the first occurrence on or after 'first' instead of stepping from seriesStart.
                 long k = Math.ceilDiv(ChronoUnit.DAYS.between(seriesStart, first), step);
                 for (LocalDate d = seriesStart.plusDays(k * step); !d.isAfter(last); d = d.plusDays(step)) {
                     dates.add(d);
@@ -58,6 +59,7 @@ public final class RecurrenceExpander {
                         : EnumSet.copyOf(daysOfWeek);
                 LocalDate seriesWeek = seriesStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                 LocalDate firstWeek = first.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                // Only weeks a whole number of intervals after the series' first week have occurrences.
                 long k = Math.ceilDiv(ChronoUnit.WEEKS.between(seriesWeek, firstWeek), step);
                 for (LocalDate week = seriesWeek.plusWeeks(k * step); !week.isAfter(last); week = week.plusWeeks(step)) {
                     for (DayOfWeek day : days) { // EnumSet iterates Monday..Sunday

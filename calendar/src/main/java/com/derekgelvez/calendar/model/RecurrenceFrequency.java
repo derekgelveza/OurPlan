@@ -1,5 +1,6 @@
 package com.derekgelvez.calendar.model;
 
+/** How often a repeating event recurs. The exact date rules are in RecurrenceExpander. */
 public enum RecurrenceFrequency {
     DAILY,
     WEEKLY,

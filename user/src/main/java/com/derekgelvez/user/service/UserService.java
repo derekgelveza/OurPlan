@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+/** General account queries. Not currently called by any controller or other service. */
 @Service
 public class UserService {
 
@@ -17,6 +18,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
+    /** Every account as a full entity, including password hashes and codes; never return this to a client directly. */
     public List<User> allUsers() {
         List<User> users = new ArrayList<>();
         userRepository.findAll().forEach(users::add);

@@ -38,6 +38,7 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public List<CategoryResponseDTO> getCategories(Long userId) {
         return categoryRepository.findByOwnerId(userId).stream()
+                // "Uncategorized" first, then by name
                 .sorted(Comparator.comparing(Category::isDefault).reversed().thenComparing(Category::getName))
                 .map(CategoryResponseDTO::from)
                 .toList();
@@ -46,6 +47,7 @@ public class CategoryService {
     @Transactional
     public CategoryResponseDTO createCategory(Long userId, CategoryDTO dto, boolean reassignColor) {
         User owner = userLookup.getUser(userId);
+        // Every user needs "Uncategorized", even one who hasn't created a calendar yet.
         getOrCreateDefaultCategory(owner);
         String name = dto.name().trim();
         if (categoryRepository.existsByOwnerIdAndNameIgnoreCase(userId, name)) {
@@ -57,11 +59,13 @@ public class CategoryService {
         return CategoryResponseDTO.from(category);
     }
 
+    /** Renames and/or recolours a category. Colour conflicts are handled the same way as on create. */
     @Transactional
     public CategoryResponseDTO updateCategory(Long userId, Long categoryId, CategoryDTO dto, boolean reassignColor) {
         Category category = getOwnedCategory(userId, categoryId);
         String name = dto.name().trim();
         String color = Category.normalizeColor(dto.colour());
+        // "Uncategorized" may be re-saved unchanged (a no-op), but not renamed or recoloured.
         if (category.isDefault()) {
             if (!category.getName().equals(name) || !category.getColor().equals(color)) {
                 throw new CannotModifyDefaultCategoryException("The \"Uncategorized\" category cannot be renamed or recoloured");

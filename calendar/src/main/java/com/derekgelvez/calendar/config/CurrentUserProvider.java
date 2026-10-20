@@ -28,6 +28,7 @@ public class CurrentUserProvider {
                                @Value("${DISABLE_AUTH:false}") boolean disableAuth,
                                @Value("${ourplan.security.bypass-user-id:1}") long bypassUserId,
                                Environment environment) {
+        // Fail at startup so the auth bypass can never be switched on outside the "local" profile.
         if (disableAuth && !environment.acceptsProfiles(Profiles.of("local"))) {
             throw new IllegalStateException("DISABLE_AUTH is only allowed with the local Spring profile");
         }
@@ -36,6 +37,7 @@ public class CurrentUserProvider {
         this.bypassUserId = bypassUserId;
     }
 
+    /** The caller's user id. Throws CalendarAccessDeniedException (403) if no OurPlan user is signed in. */
     public Long getCurrentUserId() {
         if (disableAuth) {
             // TEMP-AUTH-DISABLED: Resolve every anonymous request to one configurable local test user.

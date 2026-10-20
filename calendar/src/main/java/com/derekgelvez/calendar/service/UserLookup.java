@@ -8,7 +8,10 @@ import com.derekgelvez.user.model.UserProfile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** Calendar-side helper over the user module's repositories. */
+/**
+ * Calendar-side helper over the user module's repositories, so calendar services depend on this
+ * one class rather than on the user module's persistence directly.
+ */
 @Component
 @RequiredArgsConstructor
 class UserLookup {

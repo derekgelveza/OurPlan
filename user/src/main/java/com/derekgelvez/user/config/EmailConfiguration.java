@@ -9,6 +9,12 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import java.util.Properties;
 
+/**
+ * SMTP client used by {@code EmailService} to send verification and password-reset emails through
+ * Gmail. Host, port and TLS are set here in code; because this bean replaces Spring Boot's
+ * auto-configured mail sender, only {@code spring.mail.username} and {@code spring.mail.password}
+ * are read from configuration.
+ */
 @Configuration
 public class EmailConfiguration {
 

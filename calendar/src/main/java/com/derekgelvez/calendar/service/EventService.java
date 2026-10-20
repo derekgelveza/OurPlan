@@ -56,6 +56,10 @@ public class EventService {
 
     // ---------------------------------------------------------------- create
 
+    /**
+     * Creates a one-time or repeating event. The creator is recorded so READ_WRITE guests can later
+     * edit or delete only the events they created.
+     */
     @Transactional
     public EventResponseDTO createEvent(Long userId, Long calendarId, EventDTO dto) {
         Calendar calendar = calendarAccessService.assertCanEdit(userId, calendarId);
@@ -66,7 +70,7 @@ public class EventService {
         event = eventRepository.save(event);
         EventRecurrence recurrence = dto.recurrence() == null ? null
                 : saveRecurrence(new EventRecurrence(), event, dto.recurrence(), null);
-        return toResponse(event, recurrence != null);
+        return toResponse(event, recurrence);
     }
 
     // ---------------------------------------------------------------- read
@@ -85,10 +89,12 @@ public class EventService {
         List<EventRecurrence> series = eventRecurrenceRepository.findSeriesForRange(calendarId, to);
         Set<Long> seriesIds = series.stream().map(r -> r.getEvent().getId()).collect(Collectors.toSet());
 
+        // One-time events come straight from the range query. Repeating events also match it (by their
+        // first occurrence), so they are skipped here and expanded separately to avoid duplicates.
         List<EventResponseDTO> occurrences = new ArrayList<>();
         for (Event event : eventRepository.findByCalendarIdAndStartBeforeAndEndAfter(calendarId, to, from)) {
             if (!seriesIds.contains(event.getId())) {
-                occurrences.add(toResponse(event, false));
+                occurrences.add(toResponse(event, null));
             }
         }
         for (EventRecurrence recurrence : series) {
@@ -113,6 +119,8 @@ public class EventService {
         Optional<EventRecurrence> recurrence = eventRecurrenceRepository.findByEventId(eventId);
         DeleteScope scope = dto.scope() == null ? DeleteScope.ALL : dto.scope();
 
+        // Edit the stored event directly when it doesn't repeat, the edit covers the whole series, or
+        // "this and following" starts at the first occurrence (which is the whole series).
         if (recurrence.isEmpty() || scope == DeleteScope.ALL
                 || dto.occurrenceDate().equals(event.getStart().toLocalDate()) && scope == DeleteScope.THIS_AND_FOLLOWING) {
             return updateWholeEvent(event, recurrence.orElse(null), dto.toEventDTO(), calendar);
@@ -123,6 +131,8 @@ public class EventService {
         assertOccurs(rule, occurrenceDate);
 
         if (scope == DeleteScope.THIS_OCCURRENCE) {
+            // Only name, start/end and category can be overridden per occurrence; the request's note,
+            // allDay, timeZone and recurrence are not applied to a single occurrence.
             EventException exception = eventExceptionRepository.findByEventIdAndOccurrenceDate(eventId, occurrenceDate)
                     .orElseGet(() -> new EventException(event, occurrenceDate));
             Category category = getCategoryForCalendar(dto.categoryId(), calendar);
@@ -133,10 +143,12 @@ public class EventService {
             exception.setEnd(range[1]);
             exception.setCategory(category);
             eventExceptionRepository.save(exception);
-            return occurrenceResponse(event, occurrenceDate, exception);
+            return occurrenceResponse(event, rule, occurrenceDate, exception);
         }
 
         // THIS_AND_FOLLOWING: end the current series the day before and start a new one.
+        // Overrides on or after the split date belonged to the old series and are dropped; the new
+        // series keeps the old end date unless the request sets its own.
         LocalDate originalUntil = rule.getUntil();
         rule.setUntil(occurrenceDate.minusDays(1));
         eventRecurrenceRepository.save(rule);
@@ -149,9 +161,10 @@ public class EventService {
         next = eventRepository.save(next);
         EventRecurrence nextRule = dto.recurrence() == null ? null
                 : saveRecurrence(new EventRecurrence(), next, dto.recurrence(), originalUntil);
-        return toResponse(next, nextRule != null);
+        return toResponse(next, nextRule);
     }
 
+    /** Applies an edit to the stored event, then adds, updates or removes its repeat rule to match. */
     private EventResponseDTO updateWholeEvent(Event event, EventRecurrence existing, EventDTO dto, Calendar calendar) {
         applyFields(event, dto, calendar);
         eventRepository.save(event);
@@ -160,14 +173,12 @@ public class EventService {
                 eventExceptionRepository.deleteByEventId(event.getId());
                 eventRecurrenceRepository.delete(existing);
             }
-            return toResponse(event, false);
+            return toResponse(event, null);
         }
-        if (existing == null) { // starts repeating
-            saveRecurrence(new EventRecurrence(), event, dto.recurrence(), null);
-        } else {
-            saveRecurrence(existing, event, dto.recurrence(), existing.getUntil());
-        }
-        return toResponse(event, true);
+        EventRecurrence saved = existing == null // starts repeating, or updates the existing rule
+                ? saveRecurrence(new EventRecurrence(), event, dto.recurrence(), null)
+                : saveRecurrence(existing, event, dto.recurrence(), existing.getUntil());
+        return toResponse(event, saved);
     }
 
     // ---------------------------------------------------------------- delete
@@ -183,6 +194,7 @@ public class EventService {
         calendarAccessService.assertCanEdit(userId, event.getCalendar().getId(), event);
         Optional<EventRecurrence> recurrence = eventRecurrenceRepository.findByEventId(eventId);
 
+        // Same rule as update: "this and following" from the first occurrence deletes the whole series.
         boolean deleteAll = recurrence.isEmpty() || dto.scope() == DeleteScope.ALL
                 || dto.scope() == DeleteScope.THIS_AND_FOLLOWING
                 && dto.occurrenceDate().equals(event.getStart().toLocalDate());
@@ -210,6 +222,7 @@ public class EventService {
 
     // ---------------------------------------------------------------- expansion
 
+    /** Occurrences of one series that overlap [from, to), with cancellations skipped and overrides applied. */
     private List<EventResponseDTO> expandSeries(EventRecurrence rule, LocalDateTime from, LocalDateTime to) {
         Event event = rule.getEvent();
         Duration duration = Duration.between(event.getStart(), event.getEnd());
@@ -232,7 +245,7 @@ public class EventService {
             if (exception != null && exception.isCancelled()) {
                 continue;
             }
-            EventResponseDTO occurrence = occurrenceResponse(event, date, exception);
+            EventResponseDTO occurrence = occurrenceResponse(event, rule, date, exception);
             LocalDateTime storedEnd = event.isAllDay() ? occurrence.end().plusDays(1) : occurrence.end();
             if (occurrence.start().isBefore(to) && storedEnd.isAfter(from)) {
                 result.add(occurrence);
@@ -241,13 +254,15 @@ public class EventService {
         return result;
     }
 
+    /** Same wall-clock time as the first occurrence, shifted only if it falls in a daylight-saving gap. */
     private LocalDateTime occurrenceStart(Event event, LocalDate date) {
         LocalDateTime local = date.atTime(event.getStart().toLocalTime());
         return event.isAllDay() ? local : RecurrenceExpander.resolveLocal(local, event.getTimeZone());
     }
 
     /** An occurrence of a series on the given date, with any single-occurrence overrides applied. */
-    private EventResponseDTO occurrenceResponse(Event event, LocalDate date, EventException exception) {
+    private EventResponseDTO occurrenceResponse(Event event, EventRecurrence rule, LocalDate date,
+                                                EventException exception) {
         LocalDateTime start = occurrenceStart(event, date);
         LocalDateTime end = start.plus(Duration.between(event.getStart(), event.getEnd()));
         String name = event.getName();
@@ -258,20 +273,21 @@ public class EventService {
             name = exception.getName() != null ? exception.getName() : name;
             category = exception.getCategory() != null ? exception.getCategory() : category;
         }
-        return response(event, date, name, start, end, category, true);
+        return response(event, rule, date, name, start, end, category);
     }
 
     /** A one-time event, or the first occurrence of a series, exactly as stored. */
-    private EventResponseDTO toResponse(Event event, boolean repeating) {
-        return response(event, event.getStart().toLocalDate(), event.getName(), event.getStart(), event.getEnd(),
-                event.getCategory(), repeating);
+    private EventResponseDTO toResponse(Event event, EventRecurrence rule) {
+        return response(event, rule, event.getStart().toLocalDate(), event.getName(), event.getStart(), event.getEnd(),
+                event.getCategory());
     }
 
-    private static EventResponseDTO response(Event event, LocalDate occurrenceDate, String name, LocalDateTime start,
-                                             LocalDateTime storedEnd, Category category, boolean repeating) {
+    /** rule is null for a one-time event; for a repeating one the response also carries the rule and series start. */
+    private static EventResponseDTO response(Event event, EventRecurrence rule, LocalDate occurrenceDate, String name,
+                                             LocalDateTime start, LocalDateTime storedEnd, Category category) {
         return new EventResponseDTO(event.getId(), occurrenceDate, name, event.getNote(), start,
-                displayEnd(storedEnd, event.isAllDay()), event.isAllDay(), event.getTimeZone(), repeating,
-                CategoryResponseDTO.from(category));
+                displayEnd(storedEnd, event.isAllDay()), event.isAllDay(), event.getTimeZone(), rule != null,
+                CategoryResponseDTO.from(category), RecurrenceDTO.from(rule), event.getStart());
     }
 
     /** All-day ends are stored exclusive (midnight after the last day) and shown as the inclusive last day. */
@@ -304,6 +320,7 @@ public class EventService {
     private EventRecurrence saveRecurrence(EventRecurrence recurrence, Event event, RecurrenceDTO dto,
                                            LocalDate fallbackUntil) {
         LocalDate startDate = event.getStart().toLocalDate();
+        // End date: the request's value, else the fallback (when still valid), else three months after the start.
         LocalDate until = dto.until() != null ? dto.until()
                 : fallbackUntil != null && !fallbackUntil.isBefore(startDate) ? fallbackUntil
                 : startDate.plusMonths(DEFAULT_RECURRENCE_MONTHS);
@@ -332,6 +349,7 @@ public class EventService {
         return category;
     }
 
+    /** Rejects an edit or delete aimed at a date the series doesn't actually occur on. */
     private void assertOccurs(EventRecurrence rule, LocalDate date) {
         boolean occurs = RecurrenceExpander.occursOn(rule.getFrequency(), rule.getInterval(), rule.getDaysOfWeek(),
                 rule.getEvent().getStart().toLocalDate(), rule.getUntil(), date);

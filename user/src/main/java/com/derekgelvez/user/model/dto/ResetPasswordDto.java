@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+/** Second step of a password reset: the token from the email plus the new password. */
 @Getter
 @Setter
 public class ResetPasswordDto {

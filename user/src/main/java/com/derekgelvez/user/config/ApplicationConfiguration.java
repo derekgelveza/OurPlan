@@ -15,6 +15,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Locale;
 
+/**
+ * Connects Spring Security's login machinery to OurPlan accounts: how an account is looked up, how
+ * passwords are hashed, and when an unverified account is rejected. The calendar service imports
+ * this class too, so both services resolve a JWT's subject to the same {@code User}.
+ */
 @Configuration
 public class ApplicationConfiguration {
 
@@ -31,6 +36,7 @@ public class ApplicationConfiguration {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
     }
 
+    /** BCrypt only reads the first 72 bytes of a password, hence the 72-byte limits on sign-up and reset. */
     @Bean
     BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -41,6 +47,7 @@ public class ApplicationConfiguration {
         return config.getAuthenticationManager();
     }
 
+    /** Checks an email + password pair against the stored BCrypt hash; used by AuthenticationService.authenticate. */
     @Bean
     AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService());

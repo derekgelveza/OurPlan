@@ -35,6 +35,7 @@ public class UserExceptionHandler {
         return error(e.getStatus(), e.getCode(), e.getMessage(), Map.of());
     }
 
+    /** Bean-validation failures on a request body; details maps each failing field to its first message. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handle(MethodArgumentNotValidException e) {
         Map<String, Object> details = new LinkedHashMap<>();
@@ -44,6 +45,7 @@ public class UserExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed", details);
     }
 
+    /** Unreadable JSON, wrong parameter types or missing parameters: one generic 400 that exposes no internals. */
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
             MissingServletRequestParameterException.class, HandlerMethodValidationException.class})
     public ResponseEntity<ErrorResponse> handleBadRequest(Exception e) {

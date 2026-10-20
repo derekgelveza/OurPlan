@@ -23,6 +23,8 @@ import java.time.LocalDateTime;
  * An event on a calendar. A repeating event has an {@link EventRecurrence}; its start/end
  * describe the first occurrence. For all-day events start is midnight of the first day and
  * end is midnight after the last day (exclusive).
+ * <p>
+ * start and end are wall-clock times in {@link #timeZone}; no UTC offset is stored.
  */
 @Entity
 @Table(name = "events")

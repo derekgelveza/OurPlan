@@ -39,6 +39,7 @@ public class SecurityConfig {
                           JwtService jwtService,
                           UserDetailsService userDetailsService,
                           Environment environment) {
+        // Fail at startup so the auth bypass can never be switched on outside the "local" profile.
         if (disableAuth && !environment.acceptsProfiles(Profiles.of("local"))) {
             throw new IllegalStateException("DISABLE_AUTH is only allowed with the local Spring profile");
         }

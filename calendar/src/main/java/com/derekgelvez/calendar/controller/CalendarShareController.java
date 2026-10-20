@@ -28,6 +28,7 @@ public class CalendarShareController {
     private final CalendarShareService calendarShareService;
     private final CurrentUserProvider currentUserProvider;
 
+    /** Owner only: creates a single-use invite link that grants the requested access level. */
     @PostMapping("/calendars/{calendarId}/share")
     @ResponseStatus(HttpStatus.CREATED)
     public ShareCalendarResponseDTO shareCalendar(@PathVariable Long calendarId,
@@ -35,11 +36,13 @@ public class CalendarShareController {
         return calendarShareService.shareCalendar(currentUserProvider.getCurrentUserId(), calendarId, dto);
     }
 
+    /** Owner only: invites that are still open (not accepted, declined or expired). */
     @GetMapping("/calendars/{calendarId}/invites")
     public List<CalendarInviteResponseDTO> getPendingInvites(@PathVariable Long calendarId) {
         return calendarShareService.getPendingInvites(currentUserProvider.getCurrentUserId(), calendarId);
     }
 
+    /** Owner only: everyone the calendar is currently shared with. */
     @GetMapping("/calendars/{calendarId}/permissions")
     public List<CalendarPermissionResponseDTO> getPermissions(@PathVariable Long calendarId) {
         return calendarShareService.getPermissions(currentUserProvider.getCurrentUserId(), calendarId);
@@ -52,11 +55,13 @@ public class CalendarShareController {
         calendarShareService.removePermission(currentUserProvider.getCurrentUserId(), calendarId, userId);
     }
 
+    /** The signed-in user redeems an invite link and gains access to that calendar. */
     @PostMapping("/invites/{token}/accept")
     public CalendarResponseDTO acceptInvite(@PathVariable String token) {
         return calendarShareService.acceptInvite(currentUserProvider.getCurrentUserId(), token);
     }
 
+    /** Closes the invite without granting access. */
     @PostMapping("/invites/{token}/decline")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void declineInvite(@PathVariable String token) {

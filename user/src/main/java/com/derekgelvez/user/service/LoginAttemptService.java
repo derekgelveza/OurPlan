@@ -21,6 +21,7 @@ public class LoginAttemptService {
 
     private final Map<String, AttemptWindow> attempts = new ConcurrentHashMap<>();
 
+    /** True once MAX_FAILURES failed logins have happened within 15 minutes of the first failure. */
     public boolean isBlocked(String email) {
         AttemptWindow window = attempts.get(email);
         if (window == null) {
@@ -54,6 +55,7 @@ public class LoginAttemptService {
         }
     }
 
+    /** Failures for one email, counted from the first failure; the count resets when the window ends. */
     private static final class AttemptWindow {
         private final Instant started = Instant.now();
         private int failures = 1;

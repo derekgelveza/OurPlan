@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/** Single-occurrence overrides (edits and cancellations) of repeating events. */
 public interface EventExceptionRepository extends JpaRepository<EventException, Long> {
 
     /** Cancelled or edited occurrences to apply when expanding a series. */

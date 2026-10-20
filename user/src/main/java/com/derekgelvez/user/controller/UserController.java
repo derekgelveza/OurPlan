@@ -9,15 +9,19 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Endpoints for the signed-in user. Every route here requires a valid JWT; the principal is the
+ * {@code User} that JwtAuthenticationFilter placed in the security context.
+ */
 @RequestMapping("/users")
 @RestController
 public class UserController {
 
+    /** The caller's own account, returned as a {@link UserResponse} so no secrets leave the server. */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> authenticatedUser(@AuthenticationPrincipal User currentUser){
         return ResponseEntity.ok(UserResponse.from(currentUser));
     }
 
-    // GET /users/ (list every account) was removed: any signed-in user could read every
     // account's email, password hash and verification code. Add it back only behind an admin role.
 }

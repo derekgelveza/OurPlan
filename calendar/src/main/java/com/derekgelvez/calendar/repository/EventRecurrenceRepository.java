@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/** Repeat rules, one per repeating event. */
 public interface EventRecurrenceRepository extends JpaRepository<EventRecurrence, Long> {
 
     Optional<EventRecurrence> findByEventId(Long eventId);

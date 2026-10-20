@@ -44,10 +44,13 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         long now = System.currentTimeMillis();
+        // Bound memory: once many clients are tracked, drop the windows that have already ended.
         if (windows.size() > MAX_TRACKED_CLIENTS) {
             windows.values().removeIf(window -> now - window.start >= WINDOW_MILLIS);
         }
 
+        // One counter per client per endpoint, so /auth/login and /auth/resend have separate budgets.
+        // Fixed one-minute windows: a new window starts when none exists or the previous one has ended.
         String key = request.getRemoteAddr() + '|' + request.getRequestURI();
         Window window = windows.compute(key, (k, existing) ->
                 existing == null || now - existing.start >= WINDOW_MILLIS ? new Window(now) : existing);
@@ -61,6 +64,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /** Request count for one client/endpoint pair within one fixed one-minute window. */
     private static final class Window {
         private final long start;
         private final AtomicInteger count = new AtomicInteger();

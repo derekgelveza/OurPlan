@@ -11,6 +11,7 @@ import com.derekgelvez.user.exception.ApiException;
 import com.derekgelvez.user.repository.UserRepository;
 import jakarta.mail.MessagingException;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,6 +31,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Account lifecycle rules: sign-up, email verification, login and password reset.
+ *
+ * <p>Three habits run through this class: emails are normalized (trimmed, lower-cased) before
+ * every lookup; where possible, responses don't reveal whether an email is registered; and secrets
+ * are compared in constant time with {@link MessageDigest#isEqual} so timing can't leak them.
+ */
 @Service
 public class AuthenticationService {
 
@@ -62,6 +70,13 @@ public class AuthenticationService {
         this.loginAttemptService = loginAttemptService;
     }
 
+    /**
+     * Creates an unverified account and emails its verification code (valid 15 minutes).
+     * The byte-length check backs up the DTO's {@code @Size(max = 72)}, which counts characters:
+     * a password with multi-byte characters can pass that and still exceed BCrypt's 72-byte limit.
+     * If the email cannot be sent, the account is still saved and a 503 is returned; the user can
+     * then get a new code through {@code /auth/resend}.
+     */
     public User signup(RegisterUserDto input){
         String email = normalizeEmail(input.getEmail());
         if (input.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
@@ -103,6 +118,7 @@ public class AuthenticationService {
             loginAttemptService.recordSuccess(email);
             return (User) authentication.getPrincipal();
         } catch (DisabledException e) {
+            // The password was correct, so this isn't a guessing attempt: clear the failure count.
             loginAttemptService.recordSuccess(email);
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_NOT_VERIFIED",
                     "Account not verified. Please verify your account");
@@ -112,6 +128,11 @@ public class AuthenticationService {
         }
     }
 
+    /**
+     * Activates the account when the submitted code matches and hasn't expired. An unknown email,
+     * an already-verified account and a wrong code all produce the same error. After
+     * {@link #MAX_VERIFY_ATTEMPTS} wrong codes the code is discarded and a new one must be requested.
+     */
     public void verifyUser(VerifyUserDto input){
         String email = normalizeEmail(input.getEmail());
         User user = userRepository.findByEmail(email).orElseThrow(AuthenticationService::invalidCode);
@@ -160,6 +181,11 @@ public class AuthenticationService {
                 });
     }
 
+    /**
+     * Starts a password reset: generates a random token, stores only its SHA-256 hash (so a leaked
+     * database can't be used to reset passwords) and emails the raw token, valid for 15 minutes.
+     * Unknown emails are silently ignored so the response can't reveal which accounts exist.
+     */
     public void requestPasswordReset(ForgotPasswordDto input) {
         userRepository.findByEmail(normalizeEmail(input.getEmail())).ifPresent(user -> {
             String rawToken = generateResetToken();
@@ -169,13 +195,18 @@ public class AuthenticationService {
             try {
                 emailService.sendPasswordResetEmail(user.getEmail(),
                         "Password reset", buildPasswordResetMessage(rawToken));
-            } catch (MessagingException e) {
+            } catch (MessagingException | MailException e) {
                 // Keep the response generic so delivery failures cannot enumerate accounts.
                 log.error("Password reset email delivery failed for {}", user.getEmail(), e);
             }
         });
     }
 
+    /**
+     * Completes a password reset. The token is single-use (cleared once the password changes), and
+     * any failed-login lockout on the account is lifted. JWTs issued before the reset are not
+     * revoked; they stay valid until they expire.
+     */
     public void resetPassword(ResetPasswordDto input) {
         User user = userRepository.findByEmail(normalizeEmail(input.getEmail()))
                 .orElseThrow(AuthenticationService::invalidResetToken);
@@ -196,6 +227,7 @@ public class AuthenticationService {
         loginAttemptService.recordSuccess(user.getEmail());
     }
 
+    /** Emails the account's current code. A delivery failure becomes a 503 so the client can ask the user to retry. */
     public void sendVerificationEmail(User user) {
         String subject = "Account Verification";
         String verificationCode = user.getVerificationCode();
@@ -214,7 +246,7 @@ public class AuthenticationService {
 
         try {
             emailService.sendVerificationEmail(user.getEmail(), subject, htmlMessage);
-        } catch (MessagingException e) {
+        } catch (MessagingException | MailException e) {
             log.error("Verification email delivery failed for {}", user.getEmail(), e);
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "VERIFICATION_EMAIL_UNAVAILABLE",
                     "Verification email could not be sent");
@@ -226,12 +258,14 @@ public class AuthenticationService {
                 + rawToken + "</b></p><p>This token expires in 15 minutes.</p></body></html>";
     }
 
+    /** 256 random bits, Base64 URL-safe so the token can be pasted or placed in a link. */
     private static String generateResetToken() {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    /** A fast hash is enough here (no BCrypt) because the token is long and random, not user-chosen. */
     private static String hashToken(String token) {
         try {
             return Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -241,6 +275,7 @@ public class AuthenticationService {
         }
     }
 
+    /** Always six digits (100000-999999), matching the pattern VerifyUserDto accepts. */
     private String generateVerificationCode() {
         int code = RANDOM.nextInt(900000) + 100000;
         return String.valueOf(code);

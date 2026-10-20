@@ -1,0 +1,49 @@
+0 verbose cli /opt/homebrew/Cellar/node/25.8.1_1/bin/node /opt/homebrew/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.11.0
+2 info using node@v25.8.1
+3 silly config load:file:/opt/homebrew/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/derekgelvez/Desktop/OurPlan/OurPlan/.npmrc
+5 silly config load:file:/Users/derekgelvez/.npmrc
+6 silly config load:file:/opt/homebrew/etc/npmrc
+7 verbose title npm exec create-expo-app frontend
+8 verbose argv "exec" "--" "create-expo-app" "frontend"
+9 verbose logfile logs-max:10 dir:/Users/derekgelvez/Desktop/OurPlan/OurPlan/.npm-cache/_logs/2026-10-15T00_56_32_223Z-
+10 verbose logfile /Users/derekgelvez/Desktop/OurPlan/OurPlan/.npm-cache/_logs/2026-10-15T00_56_32_223Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+13 http fetch GET 200 https://registry.npmjs.org/create-expo-app 233ms (cache miss)
+14 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+15 http fetch GET 200 https://registry.npmjs.org/npm 400ms
+16 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+17 silly idealTree buildDeps
+18 silly fetch manifest create-expo-app@5.0.0
+19 silly packumentCache full:https://registry.npmjs.org/create-expo-app cache-miss
+20 http fetch GET 200 https://registry.npmjs.org/create-expo-app 125ms (cache miss)
+21 silly packumentCache full:https://registry.npmjs.org/create-expo-app set size:undefined disposed:false
+22 silly placeDep ROOT create-expo-app@5.0.0 OK for:  want: 5.0.0
+23 silly fetch manifest create-expo@>=5.0.1
+24 silly packumentCache full:https://registry.npmjs.org/create-expo cache-miss
+25 http fetch GET 200 https://registry.npmjs.org/create-expo 77ms (cache miss)
+26 silly packumentCache full:https://registry.npmjs.org/create-expo set size:undefined disposed:false
+27 silly placeDep ROOT create-expo@5.0.1 OK for: create-expo-app@5.0.0 want: >=5.0.1
+28 silly reify moves {}
+29 silly audit bulk request { 'create-expo-app': [ '5.0.0' ], 'create-expo': [ '5.0.1' ] }
+30 http cache create-expo@https://registry.npmjs.org/create-expo/-/create-expo-5.0.1.tgz 0ms (cache hit)
+31 http cache create-expo-app@https://registry.npmjs.org/create-expo-app/-/create-expo-app-5.0.0.tgz 0ms (cache hit)
+32 silly tarball no local data for create-expo@https://registry.npmjs.org/create-expo/-/create-expo-5.0.1.tgz. Extracting by manifest.
+33 silly tarball no local data for create-expo-app@https://registry.npmjs.org/create-expo-app/-/create-expo-app-5.0.0.tgz. Extracting by manifest.
+34 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 76ms
+35 silly audit report {}
+36 http fetch GET 200 https://registry.npmjs.org/create-expo/-/create-expo-5.0.1.tgz 81ms (cache miss)
+37 http fetch GET 200 https://registry.npmjs.org/create-expo-app/-/create-expo-app-5.0.0.tgz 139ms (cache miss)
+38 verbose cwd /Users/derekgelvez/Desktop/OurPlan/OurPlan
+39 verbose os Darwin 25.5.0
+40 verbose node v25.8.1
+41 verbose npm  v11.11.0
+42 notice
+42 notice New [33mminor[39m version of npm available! [33m11.11.0[39m -> [34m11.21.0[39m
+42 notice Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.21.0[39m
+42 notice To update run: [4mnpm install -g npm@11.21.0[24m
+42 notice  { force: true, Symbol(proc-log.meta): true }
+43 verbose exit 0
+44 info ok

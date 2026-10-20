@@ -23,7 +23,8 @@ import java.time.Instant;
 
 /**
  * A temporary invite to view or edit a calendar. The owner copies and shares
- * the generated link through the channel of their choice.
+ * the generated link through the channel of their choice. Each link is single-use:
+ * once someone accepts or declines it, it is closed.
  */
 @Entity
 @Table(name = "calendar_invites")

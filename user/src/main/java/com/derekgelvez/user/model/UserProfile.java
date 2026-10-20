@@ -19,7 +19,8 @@ import java.time.Instant;
 
 /**
  * Display information for a {@link User}. One profile per user, found with
- * {@code UserProfileRepository.findByUserId}.
+ * {@code UserProfileRepository.findByUserId}. A profile is optional: when a user has none, the
+ * calendar shows their email instead of a display name.
  */
 @Entity
 @Table(name = "user_profiles")

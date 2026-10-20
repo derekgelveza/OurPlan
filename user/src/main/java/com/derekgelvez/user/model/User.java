@@ -20,7 +20,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * An OurPlan account, looked up by id for calendar ownership and access checks.
+ * An OurPlan account, and also the principal Spring Security works with (it implements
+ * {@link UserDetails}). The calendar module references it by id for ownership, sharing and
+ * access checks.
+ *
+ * <p>Verification and password-reset state live on the same row: the pending 6-digit code with
+ * its expiry, and a SHA-256 hash (never the raw value) of the current reset token with its expiry.
  */
 @Entity
 @Table(name = "users")
@@ -43,6 +48,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    /** False until the email is verified; login is refused while it is false. */
     private boolean enabled;
 
     @Column(name = "verification_code")
@@ -85,11 +91,14 @@ public class User implements UserDetails {
         return username;
     }
 
+    /** No roles yet: every signed-in user has the same permissions. */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
         return List.of();
     }
 
+    // Account expiry, locking and credential expiry aren't modelled; repeated failed logins are
+    // throttled by LoginAttemptService instead.
     @Override
     public boolean isAccountNonExpired(){
         return true;

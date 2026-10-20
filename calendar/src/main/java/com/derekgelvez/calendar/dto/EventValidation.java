@@ -14,6 +14,7 @@ final class EventValidation {
         if (start == null || end == null) {
             return true; // reported by @NotNull
         }
+        // All-day events compare dates only, so a one-day event (same start and end date) is valid.
         return allDay ? !end.toLocalDate().isBefore(start.toLocalDate()) : end.isAfter(start);
     }
 
@@ -23,6 +24,8 @@ final class EventValidation {
         }
         try {
             ZoneId.of(timeZone);
+            // Only region IDs (e.g. America/Boise) or UTC: fixed offsets and abbreviations such as
+            // EST don't follow daylight saving, which recurring events depend on.
             return timeZone.contains("/") || "UTC".equals(timeZone);
         } catch (DateTimeException e) {
             return false;

@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+/** Sends HTML emails through the JavaMailSender defined in EmailConfiguration. */
 @Service
 public class EmailService {
 
@@ -25,6 +26,7 @@ public class EmailService {
         emailSender.send(message);
     }
 
+    /** Delivered exactly like a verification email; both are single HTML messages. */
     public void sendPasswordResetEmail(String to, String subject, String text) throws MessagingException {
         sendVerificationEmail(to, subject, text);
     }
